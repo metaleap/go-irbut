@@ -15,9 +15,9 @@ type NounCell struct {
 
 func N(v ...interface{}) Noun {
 	if l := len(v); l > 1 {
-		ret := &NounCell{l - 2, l - 1}
+		ret := &NounCell{N(v[l-2]), N(v[l-1])}
 		for i := 3; i <= l; i++ {
-			ret = &NounCell{l - i, ret}
+			ret = &NounCell{N(v[l-i]), ret}
 		}
 		return ret
 	} else {
