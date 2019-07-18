@@ -30,7 +30,19 @@ func N(v ...interface{}) Noun {
 			ret = &NounCell{N(v[l-i]), ret}
 		}
 		return ret
-	} else {
-		return v[0].(NounAtom)
+	}
+	switch t := v[0].(type) {
+	case NounAtom:
+		return t
+	case *NounCell:
+		return t
+	case int:
+		return NounAtom(t)
+	case tAtom:
+		return NounAtom(t)
+	case NounCell:
+		return &t
+	default:
+		return t.(Noun)
 	}
 }

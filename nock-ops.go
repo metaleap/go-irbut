@@ -46,18 +46,18 @@ func (me *NounCell) TreeAddr() Noun {
 	tail, istailcell := me.R.(*NounCell)
 
 	if isheadatom {
-		if head == 1 { //?                                                   [1 a]
+		if head == 1 { //?                                                   /[1 a]
 			return me.R //>                                                  a
 		}
 		if istailcell {
-			if head == 2 { //?                                               [2 a b]
+			if head == 2 { //?                                               /[2 a b]
 				return tail.L //>                                            a
-			} else if head == 3 { //?                                        [3 a b]
+			} else if head == 3 { //?                                        /[3 a b]
 				return tail.R //>                                            b
 			}
 		}
-		m, a, b := head%2, head/2, me.R                        //?           /[(a+a+0|1) b]
-		return N(NounAtom(2+m), N(a, b).TreeAddr()).TreeAddr() //>           /[(2+0|1) /[a b]]
+		m, a, b := head%2, head/2, me.R              //?                     /[(a+a+0|1) b]
+		return N(2+m, N(a, b).TreeAddr()).TreeAddr() //>                     /[(2+0|1) /[a b]]
 	}
 	panic("*NounCell.TreeAddr")
 }
