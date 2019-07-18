@@ -56,8 +56,34 @@ func (me *NounCell) TreeAddr() Noun {
 				return tail.R //>                                            b
 			}
 		}
-		m, a, b := head%2, head/2, me.R              //?                     /[(a+a+0|1) b]
-		return N(2+m, N(a, b).TreeAddr()).TreeAddr() //>                     /[(2+0|1) /[a b]]
+		m, a, b := head%2, head/2, me.R                //?                   /[(a+a+0|1) b]
+		return nc(2+m, nc(a, b).TreeAddr()).TreeAddr() //>                   /[(2+0|1) /[a b]]
 	}
 	panic("*NounCell.TreeAddr")
+}
+
+func (NounAtom) Interp() Noun {
+	panic("NounAtom.Interp")
+}
+
+func (me *NounCell) Interp() Noun {
+	a, f := me.L, me.R.(*NounCell)
+	code, iscode := f.L.(NounAtom)
+	if !iscode { //?                                                         *[a [b c] d]
+		return nc( //>                                                       [*[a b c] *[a d]]
+			nc(a, f.L).Interp(),
+			nc(a, f.R).Interp(),
+		)
+	}
+	switch b := f.R; code {
+	case 0: //?                                                              *[a 0 b]
+		return nc(b, a).TreeAddr() //>                                       /[b a]
+	case 1: //?                                                              *[a 1 b]
+		return b //>                                                         b
+	case 3: //?
+	case 4: //?
+	case 5: //?
+	}
+
+	panic("*NounCell.Interp")
 }
