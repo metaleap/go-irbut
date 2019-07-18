@@ -1,5 +1,19 @@
 package nock
 
+const (
+	OP_NOUN_AT_TREEADDR NounAtom = iota
+	OP_CONST
+	OP_TURING
+	OP_AXIOMATIC_DEPTHTEST
+	OP_AXIOMATIC_INCREMENT
+	OP_AXIOMATIC_EQ
+	OP_MACRO_IFTHENELSE
+	OP_MACRO_COMPOSE
+	OP_MACRO_VARDECL_AKA_STACKPUSH
+	OP_MACRO_PTRMETHOD
+	OP_MACRO_HINT
+)
+
 func (NounAtom) DepthTest() Noun {
 	return False
 }
@@ -67,6 +81,8 @@ func (NounAtom) Interp() Noun {
 }
 
 func (me *NounCell) Interp() Noun {
+	type A = NounAtom // just need a local short-hand below --- verbosity abounds!
+
 	a, f := me.L, me.R.(*NounCell)
 	code, iscode := f.L.(NounAtom)
 	if !iscode { //?                                                         *[a [b c] d]
@@ -75,36 +91,44 @@ func (me *NounCell) Interp() Noun {
 			nc(a, f.R).Interp(),
 		)
 	}
+
 	if code < 6 {
 		switch b := f.R; code {
-		case 0: //?                                                              *[a 0 b]
-			return nc(b, a).TreeAddr() //>                                       /[b a]
-		case 1: //?                                                              *[a 1 b]
-			return b //>                                                         b
-		case 3: //?                                                              *[a 3 b]
-			return nc(a, b).Interp().DepthTest() //                              ?*[a b]
-		case 4: //?                                                              *[a 4 b]
-			return nc(a, b).Interp().Increment() //                              +*[a b]
-		case 5: //?
-			return nc(a, b).Interp().Eq() //                                     =*[a b]
+		case OP_NOUN_AT_TREEADDR: //?                                        *[a 0 b]
+			return nc(b, a).TreeAddr() //>                                   /[b a]
+		case OP_CONST: //?                                                   *[a 1 b]
+			return b //>                                                     b
+		case OP_AXIOMATIC_DEPTHTEST: //?                                     *[a 3 b]
+			return nc(a, b).Interp().DepthTest() //>                         ?*[a b]
+		case OP_AXIOMATIC_INCREMENT: //?                                     *[a 4 b]
+			return nc(a, b).Interp().Increment() //>                         +*[a b]
+		case OP_AXIOMATIC_EQ: //?                                            *[a 5 b]
+			return nc(a, b).Interp().Eq() //>                                =*[a b]
 		}
 	}
+
 	fr := f.R.(*NounCell)
 	switch code {
-	case 2: //?                                                              *[a 2 b c]
+	case OP_TURING: //?                                                      *[a 2 b c]
 		return nc( //>                                                       *[*[a b] *[a c]]
 			nc(a, fr.L).Interp(),
 			nc(a, fr.R).Interp(),
 		).Interp()
-	case 6:
-	case 7: //?                                                              *[a 7 b c]
+	case OP_MACRO_IFTHENELSE: //?                                            *[a 6 b c d]
+		b, cd := fr.L, fr.R.(*NounCell) //>                                  *[a 2 [0 1] 2 [1 c d] [1 0] 2 [1 2 3] [1 0] 4 4 b]
+		return N(a, 2, na2(0, 1), 2, nc3(A(1), cd.L, cd.R), na2(1, 0), 2, na3(1, 2, 3), na2(1, 0), 4, 4, b).Interp()
+	case OP_MACRO_COMPOSE: //?                                               *[a 7 b c]
 		return N(a, 2, fr.L, 1, fr.R).Interp() //>                           *[a 2 b 1 c]
-	case 8:
-	case 9:
-	case 10:
-		if frl, ok := fr.L.(*NounCell); ok { //?                             *[a 10 [b c] d]
-			return N(a, 8, frl.R, 7, naa(0, 3), fr.R).Interp() //>           *[a 8 c 7 [0 3] d]
-		} else { //?                                                         *[a 10 b c]
+	case OP_MACRO_VARDECL_AKA_STACKPUSH: //?                                 *[a 8 b c]
+		return N(a, 7, nc3( //>                                              *[a 7 [[7 [0 1] b] 0 1] c]
+			nc3(A(7), na2(0, 1), fr.L), A(0), A(1),
+		), fr.R).Interp()
+	case OP_MACRO_PTRMETHOD: //?                                             *[a 9 b c]
+		return N(a, 7, fr.R, 2, na2(0, 1), 0, fr.L).Interp() //>             *[a 7 c 2 [0 1] 0 b]
+	case OP_MACRO_HINT:
+		if frl, ok := fr.L.(*NounCell); ok /* dynamic hint */ { //?          *[a 10 [b c] d]
+			return N(a, 8, frl.R, 7, na2(0, 3), fr.R).Interp() //>           *[a 8 c 7 [0 3] d]
+		} else /* static hint */ { //?                                       *[a 10 b c]
 			return nc(a, fr.R).Interp() //>                                  *[a c]
 		}
 	}

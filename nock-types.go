@@ -24,11 +24,14 @@ type NounCell struct {
 	R Noun
 }
 
-func naa(l NounAtom, r NounAtom) *NounCell   { return &NounCell{L: l, R: r} }
 func nac(l NounAtom, r *NounCell) *NounCell  { return &NounCell{L: l, R: r} }
 func nan(l NounAtom, r Noun) *NounCell       { return &NounCell{L: l, R: r} }
 func nc(l Noun, r Noun) *NounCell            { return &NounCell{L: l, R: r} }
 func nc3(l Noun, rl Noun, rr Noun) *NounCell { return &NounCell{L: l, R: &NounCell{L: rl, R: rr}} }
+func na2(l NounAtom, r NounAtom) *NounCell   { return &NounCell{L: l, R: r} }
+func na3(l NounAtom, rl NounAtom, rr NounAtom) *NounCell {
+	return &NounCell{L: l, R: &NounCell{L: rl, R: rr}}
+}
 
 func N(v ...interface{}) Noun {
 	if l := len(v); l > 1 {
