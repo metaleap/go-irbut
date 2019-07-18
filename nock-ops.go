@@ -75,15 +75,38 @@ func (me *NounCell) Interp() Noun {
 			nc(a, f.R).Interp(),
 		)
 	}
-	switch b := f.R; code {
-	case 0: //?                                                              *[a 0 b]
-		return nc(b, a).TreeAddr() //>                                       /[b a]
-	case 1: //?                                                              *[a 1 b]
-		return b //>                                                         b
-	case 3: //?
-	case 4: //?
-	case 5: //?
+	if code < 6 {
+		switch b := f.R; code {
+		case 0: //?                                                              *[a 0 b]
+			return nc(b, a).TreeAddr() //>                                       /[b a]
+		case 1: //?                                                              *[a 1 b]
+			return b //>                                                         b
+		case 3: //?                                                              *[a 3 b]
+			return nc(a, b).Interp().DepthTest() //                              ?*[a b]
+		case 4: //?                                                              *[a 4 b]
+			return nc(a, b).Interp().Increment() //                              +*[a b]
+		case 5: //?
+			return nc(a, b).Interp().Eq() //                                     =*[a b]
+		}
 	}
-
+	fr := f.R.(*NounCell)
+	switch code {
+	case 2: //?                                                              *[a 2 b c]
+		return nc( //>                                                       *[*[a b] *[a c]]
+			nc(a, fr.L).Interp(),
+			nc(a, fr.R).Interp(),
+		).Interp()
+	case 6:
+	case 7: //?                                                              *[a 7 b c]
+		return N(a, 2, fr.L, 1, fr.R).Interp() //>                           *[a 2 b 1 c]
+	case 8:
+	case 9:
+	case 10:
+		if frl, ok := fr.L.(*NounCell); ok { //?                             *[a 10 [b c] d]
+			return N(a, 8, frl.R, 7, naa(0, 3), fr.R).Interp() //>           *[a 8 c 7 [0 3] d]
+		} else { //?                                                         *[a 10 b c]
+			return nc(a, fr.R).Interp() //>                                  *[a c]
+		}
+	}
 	panic("*NounCell.Interp")
 }
