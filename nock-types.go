@@ -3,14 +3,24 @@ package nock
 const ui32Max uint32 = 0xFFFFFFFF
 const ui64Max uint64 = 0xFFFFFFFFFFFFFFFF
 
+const True NounAtom = 0
+const False NounAtom = 1
+
 type Noun interface {
+	DepthTest() Noun
+	Increment() Noun
+	eq(Noun) bool
+	Eq() Noun
+	TreeAddr() Noun
 }
 
-type NounAtom uint32
+type tAtom = uint32
+
+type NounAtom tAtom
 
 type NounCell struct {
-	A Noun
-	B Noun
+	L Noun
+	R Noun
 }
 
 func N(v ...interface{}) Noun {
@@ -21,13 +31,6 @@ func N(v ...interface{}) Noun {
 		}
 		return ret
 	} else {
-		if i, ok1 := v[0].(int); ok1 {
-			return NounAtom(i)
-		} else if ui32, ok := v[0].(uint32); ok {
-			return NounAtom(ui32)
-		} else if ui, ok2 := v[0].(uint); ok2 {
-			return NounAtom(ui)
-		}
-		panic(v[0])
+		return v[0].(NounAtom)
 	}
 }
