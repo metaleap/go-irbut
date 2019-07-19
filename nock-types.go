@@ -6,12 +6,14 @@ const ui64Max uint64 = 0xFFFFFFFFFFFFFFFF
 const True NounAtom = 0
 const False NounAtom = 1
 
+// Noun methods either return another `Noun` or `panic` with the current `Noun`.
 type Noun interface {
-	DepthTest() Noun
+	IsCell() Noun
 	Increment() Noun
 	eq(Noun) bool
 	Eq() Noun
 	TreeAddr() Noun
+	Edit() Noun
 	Interp() Noun
 }
 
