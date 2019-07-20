@@ -79,7 +79,7 @@ func at(addr Noun, tree Noun) (Noun, bool) {
 }
 
 type Prog struct {
-	Globals       Noun
+	Globals       *NounCell
 	globalsByAddr map[NounAtom]*NounCell
 
 	OnHintStatic  func(subj Noun, discard Noun, args Noun) Noun
@@ -174,10 +174,12 @@ func (me *Prog) interp(code Noun) Noun {
 						return me.interp(___(subj, argscell.R))
 					}
 				default:
-					if def := me.globalsByAddr[opcode]; def != nil {
-						return me.interp(___(
-							___(subj, ___(me.Globals, args)),
-							def))
+					if deftree := me.globalsByAddr[opcode]; deftree != nil {
+						if defbagnbody, _ := deftree.L.(*NounCell); defbagnbody != nil {
+							return me.interp(___(
+								___(___(subj, ___(args, defbagnbody.L)), me.Globals.R),
+								defbagnbody.R))
+						}
 					}
 				}
 			}

@@ -53,7 +53,9 @@ func ParseProg(src string, entryPointDefName string) *Prog {
 	return &Prog{Globals: progtree, globalsByAddr: defsbyaddr}
 }
 
-func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) Noun {
+func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) *NounCell {
+	args := make(map[string]NounAtom, len(nameArgsBody)-2)
+
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
 	if len(srclines) == 0 {
 		panic("expected body following `:` for def `" + nameArgsBody[0] + "`")
@@ -82,14 +84,18 @@ func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) Noun 
 		for i := range locals {
 			def := &locals[i]
 			localdefaddrs[def.name] = def.addr
+			def.subTree.L = parseExpr(globalDefs, args, localdefaddrs, def.bodySrc)
 		}
 	}
 
 	// dealt with the locals, now parse the def's body expr
-	return nil
+	return ___(
+		localstree,
+		parseExpr(globalDefs, args, localdefaddrs, srclines[0]),
+	)
 }
 
-func parseExpr(globalDefs map[string]NounAtom, args map[string]NounAtom, localDefs map[string]Noun, body string) Noun {
+func parseExpr(globalDefs map[string]NounAtom, args map[string]NounAtom, localDefs map[string]NounAtom, body string) Noun {
 	return nil
 }
 
