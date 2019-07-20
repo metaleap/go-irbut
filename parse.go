@@ -58,21 +58,25 @@ func ParseProg(src string, entryPointDefName string) *Prog {
 }
 
 func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) *NounCell {
-	args := make(map[string]NounAtom, len(nameArgsBody)-2)
+	ctx := ctxParse{
+		argAddrs:         make(map[string]NounAtom, len(nameArgsBody)-2),
+		globalDefAddrs:   globalDefs,
+		curGlobalDefName: nameArgsBody[0],
+	}
 	for i := 1; i < len(nameArgsBody)-1; i++ {
 		argname := nameArgsBody[i]
-		if _, exists := args[argname]; exists {
-			panic("duplicate arg name `" + argname + "` in global def `" + nameArgsBody[0] + "`")
+		if _, exists := ctx.argAddrs[argname]; exists {
+			panic("in `" + nameArgsBody[0] + "`: duplicate arg name `" + argname + "`")
 		}
-		args[argname] = Nil
+		ctx.argAddrs[argname] = Nil
 	}
 
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
 	if len(srclines) == 0 {
-		panic("expected body following `:` for def `" + nameArgsBody[0] + "`")
+		panic("in `" + nameArgsBody[0] + "`: expected body following `:`")
 	}
-	localdefaddrs, localstree := make(map[string]NounAtom, len(srclines)-1), &NounCell{L: Nil, R: Nil}
-	if len(srclines) > 1 { // we have named LOCAL DEFS
+	localstree := &NounCell{L: Nil, R: Nil}
+	if ctx.localDefAddrs = make(map[string]NounAtom, len(srclines)-1); len(srclines) > 1 {
 		type todo struct {
 			name    string
 			bodySrc string
@@ -83,9 +87,9 @@ func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) *Noun
 		for i := 1; i < len(srclines); i++ {
 			localsrc, def := srclines[i], &locals[i-1]
 			if def.name, def.bodySrc = strBreakAndTrim(localsrc, ':', true); def.name == "" {
-				panic("expected name preceding `:` for local def in: " + localsrc)
+				panic("in `" + nameArgsBody[0] + "`: expected name preceding `:` for local def near: " + localsrc)
 			} else if def.bodySrc == "" {
-				panic("expected body following `:` for local def in: " + localsrc)
+				panic("in `" + strJoin2(nameArgsBody[0], "/", def.name) + "`: expected body following `:` for local def in: " + localsrc)
 			} else {
 				nexttree := &NounCell{L: Nil, R: Nil}
 				def.subTree, def.addr, prevtree.L, prevtree.R = prevtree, addr-2, nil, nexttree
@@ -94,45 +98,76 @@ func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) *Noun
 		}
 		for i := range locals {
 			def := &locals[i]
-			if _, exists := localdefaddrs[def.name]; exists {
-				panic("duplicate local def name `" + def.name + "`")
+			if _, exists := ctx.localDefAddrs[def.name]; exists {
+				panic("in `" + nameArgsBody[0] + "`: duplicate local def name `" + def.name + "`")
 			}
-			localdefaddrs[def.name] = def.addr
-			def.subTree.L = parseExpr(nameArgsBody[0], def.name, globalDefs, args, localdefaddrs, def.bodySrc)
+			ctx.localDefAddrs[def.name], ctx.curLocalDefName = def.addr, def.name
+			def.subTree.L = ctx.parseExpr(def.bodySrc)
 		}
 	}
 
 	// dealt with the locals, now parse the def's body expr
+	ctx.curLocalDefName = ""
 	return ___(
 		localstree,
-		parseExpr(nameArgsBody[0], "", globalDefs, args, localdefaddrs, srclines[0]),
+		ctx.parseExpr(srclines[0]),
 	)
 }
 
-func parseExpr(curGlobalDefName string, curLocalDefName string, globalDefs map[string]NounAtom, args map[string]NounAtom, localDefs map[string]NounAtom, src string) (expr Noun) {
-	toks := strTokens(src)
+type ctxParse struct {
+	curGlobalDefName string
+	curLocalDefName  string
+	globalDefAddrs   map[string]NounAtom
+	argAddrs         map[string]NounAtom
+	localDefAddrs    map[string]NounAtom
+}
+
+func (me *ctxParse) parseExpr(src string) (expr Noun) {
+	fail := func(tok string, msg string) {
+		panic("in `" + strJoin2(me.curGlobalDefName, "/", me.curLocalDefName) + "` at `" + tok + "`: " + msg)
+	}
+	toks, numopenbrackets := strTokens(src)
+	if numopenbrackets != 0 {
+		fail(toks[len(toks)-1], strconv.FormatInt(int64(numopenbrackets), 10)+" unclosed bracket(s)")
+	}
 	for _, tok := range toks {
 		var cur Noun
-		if tok[0] >= '0' && tok[0] <= '9' {
+
+		if tok[0] == '[' {
+			// var cell NounCell
+			if items := strSplitAndTrim(tok[1:len(tok)-1], " ", true); len(items) < 2 {
+				fail(tok, "expected at least 2 cell nodes")
+			} else {
+				for _, item := range items {
+					println(item)
+				}
+			}
+
+		} else if tok[0] >= '0' && tok[0] <= '9' {
 			if ui, e := strconv.ParseUint(tok, 10, 64); e != nil {
-				panic(e)
+				fail(tok, e.Error())
 			} else {
 				cur = NounAtom(ui)
 			}
+
+		} else if (tok[0] >= 'A' && tok[0] <= 'Z') || (tok[0] >= 'a' && tok[0] <= 'z') {
+
 		}
+
 		if expr == nil {
 			expr = cur
 		}
 	}
 
 	if expr == nil {
-		panic("expression expected in: " + src)
+		fail(src, "expression expected")
 	}
 	return
 }
 
 func ParseExpr(src string) Noun {
-	return parseExpr("", "", nil, nil, nil, src)
+	var ctx ctxParse
+	return ctx.parseExpr(src)
 }
 
 func strBreakAndTrim(s string, sep byte, stripComments bool) (left string, right string) {
@@ -178,18 +213,17 @@ func strStripCommentIf(when bool, s string) string {
 	return s
 }
 
-func strTokens(src string) (toks []string) {
+func strTokens(src string) (toks []string, numOpenBrackets int) {
 	inbracketsince, inwordsince := -1, -1
-	var brackets int
 	for i := 0; i < len(src); i++ {
 		if src[i] == '[' {
-			if brackets++; inbracketsince == -1 {
+			if numOpenBrackets++; inbracketsince == -1 {
 				if inbracketsince = i; inwordsince != -1 {
 					inwordsince, toks = -1, append(toks, src[inwordsince:i])
 				}
 			}
 		}
-		if brackets == 0 {
+		if numOpenBrackets == 0 {
 			isalphanum := (src[i] >= '0' && src[i] <= '9') || (src[i] >= 'A' && src[i] <= 'Z') || (src[i] >= 'a' && src[i] <= 'z')
 			if !isalphanum {
 				if inwordsince != -1 {
@@ -202,13 +236,25 @@ func strTokens(src string) (toks []string) {
 				inwordsince = i
 			}
 		} else if src[i] == ']' {
-			if brackets--; brackets == 0 {
+			if numOpenBrackets--; numOpenBrackets == 0 {
 				inbracketsince, toks = -1, append(toks, src[inbracketsince:i+1])
 			}
 		}
 	}
-	if inwordsince != -1 {
+	if inbracketsince != -1 {
+		toks = append(toks, src[inbracketsince:])
+	} else if inwordsince != -1 {
 		toks = append(toks, src[inwordsince:])
 	}
 	return
+}
+
+func strJoin2(s1 string, sep string, s2 string) string {
+	if s1 == "" {
+		return s2
+	} else if s2 == "" {
+		return s1
+	} else {
+		return s1 + sep + s2
+	}
 }
