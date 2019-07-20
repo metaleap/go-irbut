@@ -16,15 +16,14 @@ type noun = irbut.Noun
 type ª = irbut.NounAtom
 type º = irbut.NounCell
 
-const ø = irbut.Nil
+const ø = irbut.None
 
 func ___(l noun, r noun) *º { return &º{L: l, R: r} }
-
 func main() {
 	out := func(n noun) { println(n.String()) }
 
 	timestarted := time.Now()
-	prog := irbut.ParseProg(irbut.SrcPrelude+"\n\n"+srcSimple, "main")
+	prog := irbut.ParseProg(irbut.SrcPrelude + "\n\n" + srcSimple)
 	println(time.Since(timestarted).String())
 
 	out(prog.Interp(___(ø, ___(irbut.OP_CONST, ª(234)))))

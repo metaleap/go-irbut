@@ -2,13 +2,18 @@ package irbut
 
 const SrcPrelude = `
 
+id:
+	this
+
 // composition
 feed f1 f2:
 	this.f1.f2
 
 // extension
 keep f1 f2:
+	// wot now
 	[this.f1 this].f2
+	123 : call
 
 // invocation
 call addr f:

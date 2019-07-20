@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	Nil   NounAtom = 0xffffffffffffffff
+	None  NounAtom = 0xffffffffffffffff
 	True  NounAtom = 0
 	False NounAtom = 1
 )
@@ -26,18 +26,14 @@ type NounCell struct {
 func (me *NounCell) String() string { return "[" + me.L.String() + " " + me.R.String() + "]" }
 
 const (
-	OP_AT NounAtom = iota
-	OP_CONST
-	OP_EVAL
-	OP_ISCELL
-	OP_INCR
-	OP_EQ
-	_ // 6 must remain free because globals (custom defs) have tree addresses 8-2 (=6), 16-2, 32-2, 64-2, 128-2 and so on
-	OP_CASE
-	_
-	_
-	_
-	OP_HINT
+	OP_AT     NounAtom = '@'
+	OP_CONST  NounAtom = '^'
+	OP_EVAL   NounAtom = '!'
+	OP_ISCELL NounAtom = '?'
+	OP_INCR   NounAtom = '+'
+	OP_EQ     NounAtom = '='
+	OP_CASE   NounAtom = '|'
+	OP_HINT   NounAtom = '\''
 )
 
 // legible short-hand constructor for cells
@@ -174,12 +170,10 @@ func (me *Prog) interp(code Noun) Noun {
 						return me.interp(___(subj, argscell.R))
 					}
 				default:
-					if deftree := me.globalsByAddr[opcode]; deftree != nil {
-						if defbagnbody, _ := deftree.L.(*NounCell); defbagnbody != nil {
-							return me.interp(___(
-								___(___(subj /*4*/, ___(args /*10*/, defbagnbody.L /*11*/)), me.Globals.R /*3*/),
-								defbagnbody.R))
-						}
+					if defbagnbody := me.globalsByAddr[opcode]; defbagnbody != nil {
+						return me.interp(___(
+							___(___(subj /*4*/, ___(args /*10*/, defbagnbody.L /*11*/)), me.Globals.R /*3*/),
+							defbagnbody.R))
 					}
 				}
 			}
