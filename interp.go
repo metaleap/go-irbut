@@ -177,7 +177,7 @@ func (me *Prog) interp(code Noun) Noun {
 					if deftree := me.globalsByAddr[opcode]; deftree != nil {
 						if defbagnbody, _ := deftree.L.(*NounCell); defbagnbody != nil {
 							return me.interp(___(
-								___(___(subj, ___(args, defbagnbody.L)), me.Globals.R),
+								___(___(subj /*4*/, ___(args /*10*/, defbagnbody.L /*11*/)), me.Globals.R /*3*/),
 								defbagnbody.R))
 						}
 					}
