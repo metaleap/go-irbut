@@ -31,12 +31,17 @@ const (
 	OP_ISCELL
 	OP_INCR
 	OP_EQ
-	_
+	OP_CASE
 	_
 	_
 	_
 	_
 	OP_HINT
+)
+
+var (
+	OnHintStatic  func(subj Noun, discard Noun, args Noun) Noun
+	OnHintDynamic func(subj Noun, discardValue Noun, discardResult Noun, args Noun) Noun
 )
 
 // short-hand constructor for cells
@@ -130,9 +135,31 @@ func Interp(code Noun) Noun {
 						}
 						return False
 					}
-					// case OP_HINT:
-					// default:
-					// 	return OnCustomOpCode(subj, opcode, args)
+				case OP_CASE:
+					if isargscell {
+						if boolish, isboolish := argscell.L.(NounAtom); isboolish {
+							if branch, iscell := argscell.R.(*NounCell); iscell {
+								if boolish == True {
+									return branch.L
+								} else if boolish == False {
+									return branch.R
+								}
+							}
+						}
+					}
+				case OP_HINT:
+					if dyn, isdyn := argscell.L.(*NounCell); !isdyn {
+						if n := OnHintStatic(subj, argscell.L, argscell.R); n != nil {
+							return n
+						}
+						return Interp(___(subj, argscell.R))
+					} else {
+						discardresult := Interp(___(subj, dyn.R))
+						if n := OnHintDynamic(subj, argscell.L, discardresult, argscell.R); n != nil {
+							return n
+						}
+						return Interp(___(subj, argscell.R))
+					}
 				}
 			}
 		}
