@@ -51,18 +51,27 @@ func Parse(src string, entryPointDefName string) Noun {
 			len(alldefs), append(alldefs, DefRaw(append(srcdefnames, srcdefbody)))
 	}
 
+	// build up the prog tree: L is entry-point addr, R is tree of (L: first def, R: 0 or next such sub-tree)
 	defaddrs := make(map[string]NounAtom, len(alldefs))
-	var progtree NounCell
-	prevtree := &progtree
+	progtree := &NounCell{L: NounAtom(0), R: NounAtom(0)}
+	prevtree, addr := progtree, NounAtom(8)
 	for i := range alldefs {
-		deftree, defname := ___(False, False), alldefs[i][0]
-		prevtree.L, prevtree.R, prevtree = NounAtom(i), deftree, deftree
-		var defaddr NounAtom
+		deftree, defname, defaddr :=
+			___(parseDef(alldefs[i]), NounAtom(0)), alldefs[i][0], addr-2
+		prevtree.R, prevtree, addr = deftree, deftree, addr+addr
 		if defaddrs[defname] = defaddr; defname == entryPointDefName {
 			progtree.L = defaddr
 		}
 	}
-	return &progtree
+	return progtree
+}
+
+func parseDef(nameArgsBody []string) Noun {
+	return nil
+}
+
+func parseExpr(argsEnv []string, src string) Noun {
+	return nil
 }
 
 func strBreakAndTrim(s string, sep byte) (left string, right string) {
