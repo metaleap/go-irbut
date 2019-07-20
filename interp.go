@@ -5,6 +5,7 @@ import (
 )
 
 const (
+	Nil   NounAtom = 0xffffffffffffffff
 	True  NounAtom = 0
 	False NounAtom = 1
 )
@@ -174,8 +175,9 @@ func (me *Prog) interp(code Noun) Noun {
 					}
 				default:
 					if def := me.globalsByAddr[opcode]; def != nil {
-						subj = ___(subj, ___(me.Globals, nil))
-
+						return me.interp(___(
+							___(subj, ___(me.Globals, args)),
+							def))
 					}
 				}
 			}

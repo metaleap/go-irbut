@@ -4,7 +4,7 @@ import (
 	"strings"
 )
 
-func Parse(src string, entryPointDefName string) *Prog {
+func ParseProg(src string, entryPointDefName string) *Prog {
 	// strip top-level-only comment lines first
 	if strings.HasPrefix(src, "//") {
 		src = "\n" + src
@@ -32,8 +32,8 @@ func Parse(src string, entryPointDefName string) *Prog {
 			len(alldefs), append(alldefs, DefRaw(append(srcdefnames, srcdefbody)))
 	}
 
-	// the prog-tree: L is entry-point addr, R is tree of (L: first def, R: 0 or next such sub-tree)
-	progtree, defaddrs, defsbyaddr := &NounCell{L: NounAtom(0), R: NounAtom(0)}, make(map[string]NounAtom, len(alldefs)), make(map[NounAtom]*NounCell, len(alldefs))
+	// the prog-tree: L is entry-point addr, R is tree of (L: first def, R: `Nil` or next such sub-tree)
+	progtree, defaddrs, defsbyaddr := &NounCell{L: Nil, R: Nil}, make(map[string]NounAtom, len(alldefs)), make(map[NounAtom]*NounCell, len(alldefs))
 	prevtree, addr := progtree, NounAtom(8)
 	// collect addrs first so each def-parse below has all globals' addrs at hand
 	for i := range alldefs {
@@ -45,7 +45,7 @@ func Parse(src string, entryPointDefName string) *Prog {
 	}
 	// parse the defs, put them into the prog-tree
 	for i := range alldefs {
-		deftree := ___(parseDef(progtree, alldefs[i]), NounAtom(0))
+		deftree := ___(parseGlobalDef(defaddrs, alldefs[i]), Nil)
 		defsbyaddr[defaddrs[alldefs[i][0]]] = deftree
 		prevtree.R, prevtree = deftree, deftree
 	}
@@ -53,24 +53,48 @@ func Parse(src string, entryPointDefName string) *Prog {
 	return &Prog{Globals: progtree, globalsByAddr: defsbyaddr}
 }
 
-func parseDef(progTree *NounCell, nameArgsBody []string) Noun {
+func parseGlobalDef(globalDefs map[string]NounAtom, nameArgsBody []string) Noun {
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
 	if len(srclines) == 0 {
 		panic("expected body following `:` for def `" + nameArgsBody[0] + "`")
 	}
-	if len(srclines) > 1 { // we have named locals, parse them first
+	localdefaddrs, localstree := make(map[string]NounAtom, len(srclines)-1), &NounCell{L: Nil, R: Nil}
+	if len(srclines) > 1 { // we have named LOCAL DEFS
+		type todo struct {
+			name    string
+			bodySrc string
+			addr    NounAtom
+			subTree *NounCell
+		}
+		prevtree, addr, locals := localstree, NounAtom(8), make([]todo, len(srclines)-1)
 		for i := 1; i < len(srclines); i++ {
-			localsrc := srclines[i]
-			if localname, localbody := strBreakAndTrim(localsrc, ':', true); localname == "" {
+			localsrc, def := srclines[i], &locals[i-1]
+			if def.name, def.bodySrc = strBreakAndTrim(localsrc, ':', true); def.name == "" {
 				panic("expected name preceding `:` for local def in: " + localsrc)
-			} else if localbody == "" {
+			} else if def.bodySrc == "" {
 				panic("expected body following `:` for local def in: " + localsrc)
 			} else {
-
+				nexttree := &NounCell{L: Nil, R: Nil}
+				def.subTree, def.addr, prevtree.L, prevtree.R = prevtree, addr-2, nil, nexttree
+				prevtree, addr = nexttree, addr+addr
 			}
 		}
+		for i := range locals {
+			def := &locals[i]
+			localdefaddrs[def.name] = def.addr
+		}
 	}
+
+	// dealt with the locals, now parse the def's body expr
 	return nil
+}
+
+func parseExpr(globalDefs map[string]NounAtom, args map[string]NounAtom, localDefs map[string]Noun, body string) Noun {
+	return nil
+}
+
+func ParseExpr(body string) Noun {
+	return parseExpr(nil, nil, nil, body)
 }
 
 func strBreakAndTrim(s string, sep byte, stripComments bool) (left string, right string) {
