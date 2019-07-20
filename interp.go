@@ -4,6 +4,11 @@ import (
 	"strconv"
 )
 
+const (
+	True  NounAtom = 0
+	False NounAtom = 1
+)
+
 type Noun interface {
 	String() string
 }
@@ -17,12 +22,7 @@ type NounCell struct {
 	R Noun
 }
 
-func (me *NounCell) String() string { return "<" + me.L.String() + " " + me.R.String() + ">" }
-
-const (
-	True  NounAtom = 0
-	False NounAtom = 1
-)
+func (me *NounCell) String() string { return "[" + me.L.String() + " " + me.R.String() + "]" }
 
 const (
 	OP_AT NounAtom = iota
@@ -64,7 +64,7 @@ func eq(noun1 Noun, noun2 Noun) bool {
 
 // tree-addressing scheme
 func at(addr Noun, tree Noun) (Noun, bool) {
-	if addratom, isaddratom := addr.(NounAtom); isaddratom {
+	if addratom, isaddratom := addr.(NounAtom); isaddratom && addratom > 0 {
 		if addratom == 1 {
 			return tree, true
 		}
