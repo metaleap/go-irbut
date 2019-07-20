@@ -31,17 +31,12 @@ const (
 	OP_ISCELL
 	OP_INCR
 	OP_EQ
+	_ // 6 must remain free because globals (custom defs) have tree addresses 8-2 (=6), 16-2, 32-2, 64-2, 128-2 and so on
 	OP_CASE
 	_
 	_
 	_
-	_
 	OP_HINT
-)
-
-var (
-	OnHintStatic  func(subj Noun, discard Noun, args Noun) Noun
-	OnHintDynamic func(subj Noun, discardValue Noun, discardResult Noun, args Noun) Noun
 )
 
 // legible short-hand constructor for cells
@@ -75,17 +70,31 @@ func at(addr Noun, tree Noun) (Noun, bool) {
 				}
 				return treecell.R, true
 			}
-		} else { // *only* if greater 3!
-			if n, ok := at(addratom/2, tree); ok {
-				return at(2+(addratom%2), n)
-			}
+		} else if n, ok := at(addratom/2, tree); ok {
+			return at(2+(addratom%2), n)
 		}
 	}
 	return nil, false
 }
 
+type Prog struct {
+	Globals       Noun
+	globalsByAddr map[NounAtom]*NounCell
+
+	OnHintStatic  func(subj Noun, discard Noun, args Noun) Noun
+	OnHintDynamic func(subj Noun, discardValue Noun, discardResult Noun, args Noun) Noun
+
+	onHintStatic  bool
+	onHintDynamic bool
+}
+
 // Interp returns a `Noun` other than `code`, or `panic`s with an offending `Noun`.
-func Interp(code Noun) Noun {
+func (me *Prog) Interp(code Noun) Noun {
+	me.onHintDynamic, me.onHintStatic = (me.OnHintDynamic != nil), (me.OnHintStatic != nil)
+	return me.interp(code)
+}
+
+func (me *Prog) interp(code Noun) Noun {
 	// many of the type assertions wouldn't be necessary if not for the fact
 	// that we require all `panic`s to be `Noun`-typed, to signal
 	// infinite-loop-preemption aka. no-further-reducability aka. termination.
@@ -95,8 +104,8 @@ func Interp(code Noun) Noun {
 			op, args := formula.L, formula.R
 			if _, isopcell := op.(*NounCell); isopcell {
 				return ___(
-					Interp(___(subj, op)),
-					Interp(___(subj, args)),
+					me.interp(___(subj, op)),
+					me.interp(___(subj, args)),
 				)
 			}
 			if opcode, isopcode := op.(NounAtom); isopcode {
@@ -110,25 +119,25 @@ func Interp(code Noun) Noun {
 					return args
 				case OP_EVAL:
 					if isargscell {
-						return Interp(___(
-							Interp(___(subj, argscell.L)),
-							Interp(___(subj, argscell.R)),
+						return me.interp(___(
+							me.interp(___(subj, argscell.L)),
+							me.interp(___(subj, argscell.R)),
 						))
 					}
 				case OP_ISCELL:
-					v := Interp(___(subj, args))
+					v := me.interp(___(subj, args))
 					if _, ok := v.(*NounCell); ok {
 						return True
 					} else if _, ok = v.(NounAtom); ok {
 						return False
 					}
 				case OP_INCR:
-					v := Interp(___(subj, args))
+					v := me.interp(___(subj, args))
 					if vatom, isvatom := v.(NounAtom); isvatom {
 						return vatom + 1
 					}
 				case OP_EQ:
-					v := Interp(___(subj, args))
+					v := me.interp(___(subj, args))
 					if vcell, isvcell := v.(*NounCell); isvcell {
 						if eq(vcell.L, vcell.R) {
 							return True
@@ -149,16 +158,24 @@ func Interp(code Noun) Noun {
 					}
 				case OP_HINT:
 					if dyn, isdyn := argscell.L.(*NounCell); !isdyn {
-						if n := OnHintStatic(subj, argscell.L, argscell.R); n != nil {
-							return n
+						if me.onHintStatic {
+							if n := me.OnHintStatic(subj, argscell.L, argscell.R); n != nil {
+								return n
+							}
 						}
-						return Interp(___(subj, argscell.R))
+						return me.interp(___(subj, argscell.R))
 					} else {
-						discardresult := Interp(___(subj, dyn.R))
-						if n := OnHintDynamic(subj, argscell.L, discardresult, argscell.R); n != nil {
-							return n
+						if discardresult := me.interp(___(subj, dyn.R)); me.onHintDynamic {
+							if n := me.OnHintDynamic(subj, argscell.L, discardresult, argscell.R); n != nil {
+								return n
+							}
 						}
-						return Interp(___(subj, argscell.R))
+						return me.interp(___(subj, argscell.R))
+					}
+				default:
+					if def := me.globalsByAddr[opcode]; def != nil {
+						subj = ___(subj, ___(me.Globals, nil))
+
 					}
 				}
 			}
