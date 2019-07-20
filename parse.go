@@ -24,15 +24,19 @@ case boolish ifTrue ifFalse:
 
 func Parse(src string) Noun {
 	// strip top-level-only comment lines first
+	if strings.HasPrefix(src, "//") {
+		src = "\n" + src
+	}
 	for pos := strings.Index(src, "\n//"); pos >= 0; pos = strings.Index(src, "\n//") {
 		if p2 := strings.IndexByte(src[pos+1:], '\n'); p2 < 0 {
-			src = src[:pos+1]
+			src = src[:pos]
 		} else {
-			src = src[:pos+1] + src[pos+1+p2+1:]
+			src = src[:pos] + src[pos+1+p2:]
 		}
 	}
 
-	srctopchunks := strSplitAndTrim(strings.TrimSpace(src), "\n\n", true)
+	src = strings.TrimSpace(src)
+	srctopchunks := strSplitAndTrim(src, "\n\n", true)
 	// scan all names first so earlier defs can ref to later ones
 	type DefRaw []string // in order: 1 name, 0-or-more arg-names, 1 body-src
 	alldefs, alldefnames := make([]DefRaw, 0, len(srctopchunks)), make(map[string]int, len(srctopchunks))
