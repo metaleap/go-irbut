@@ -44,7 +44,7 @@ var (
 	OnHintDynamic func(subj Noun, discardValue Noun, discardResult Noun, args Noun) Noun
 )
 
-// short-hand constructor for cells
+// legible short-hand constructor for cells
 func ___(left Noun, right Noun) *NounCell { return &NounCell{L: left, R: right} }
 
 // structural/value equality (no identity)

@@ -6,23 +6,27 @@ import (
 
 const SrcPrelude = `
 
+// composition
 feed f1 f2:
 	this.f1.f2
 
+// extension
 keep f1 f2:
 	[this.f1 this].f2
 
+// invocation
 call addr f:
 	this.f.![@1 @addr]
 
-//   *[this *[ [ifTrue ifFalse] 0 *[[2 3] 0 *[this 4 4 boolish]]]]
+// *[this *[ [ifTrue ifFalse] 0 *[[2 3] 0 *[this 4 4 boolish]]]]
 case boolish ifTrue ifFalse:
 	this.foo
 	foo: [ifTrue ifFalse].@addr
 	addr: [2 3].@this.++boolish
+
 	`
 
-func Parse(src string) Noun {
+func Parse(src string, entryPointDefName string) Noun {
 	// strip top-level-only comment lines first
 	if strings.HasPrefix(src, "//") {
 		src = "\n" + src
@@ -46,7 +50,19 @@ func Parse(src string) Noun {
 		alldefnames[srcdefnames[0]], alldefs =
 			len(alldefs), append(alldefs, DefRaw(append(srcdefnames, srcdefbody)))
 	}
-	return nil
+
+	defaddrs := make(map[string]NounAtom, len(alldefs))
+	var progtree NounCell
+	prevtree := &progtree
+	for i := range alldefs {
+		deftree, defname := ___(False, False), alldefs[i][0]
+		prevtree.L, prevtree.R, prevtree = NounAtom(i), deftree, deftree
+		var defaddr NounAtom
+		if defaddrs[defname] = defaddr; defname == entryPointDefName {
+			progtree.L = defaddr
+		}
+	}
+	return &progtree
 }
 
 func strBreakAndTrim(s string, sep byte) (left string, right string) {
