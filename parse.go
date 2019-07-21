@@ -58,31 +58,28 @@ type ctxParseGlobalDef struct {
 	prog            *Prog
 	name            string
 	curLocalDefName string
-	argAddrs        map[string]NounAtom
-	localDefAddrs   map[string]NounAtom
+	argsAddrs       map[string]NounAtom
+	localDefs       map[string]Noun
 }
 
 func (me *ctxParseGlobalDef) parse(nameArgsBody []string) {
-	me.argAddrs = make(map[string]NounAtom, len(nameArgsBody)-2)
+	me.argsAddrs = make(map[string]NounAtom, len(nameArgsBody)-2)
 	for i := 1; i < len(nameArgsBody)-1; i++ {
 		argname := nameArgsBody[i]
-		if _, exists := me.argAddrs[argname]; exists {
+		if _, exists := me.argsAddrs[argname]; exists {
 			panic("in `" + me.name + "`: duplicate arg name `" + argname + "`")
 		}
-		me.argAddrs[argname] = None
+		me.argsAddrs[argname] = None
 	}
 
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
 	if len(srclines) == 0 {
 		panic("in `" + me.name + "`: expected body following `:`")
 	}
-	localstree := &NounCell{L: None, R: None}
-	if me.localDefAddrs = make(map[string]NounAtom, len(srclines)-1); len(srclines) > 1 {
-		prevtree, addr, locals := localstree, NounAtom(8), make([]struct {
+	if me.localDefs = make(map[string]Noun, len(srclines)-1); len(srclines) > 1 {
+		locals := make([]struct {
 			name    string
 			bodySrc string
-			addr    NounAtom
-			subTree *NounCell
 		}, len(srclines)-1)
 		for i := 1; i < len(srclines); i++ {
 			ldef, ldefsrc := &locals[i-1], srclines[i]
@@ -91,27 +88,22 @@ func (me *ctxParseGlobalDef) parse(nameArgsBody []string) {
 			} else if ldef.bodySrc == "" {
 				panic("in `" + strJoin2(me.name, "/", ldef.name) + "`: expected body following `:` for local def near: " + ldefsrc)
 			} else {
-				nexttree := &NounCell{L: None, R: None}
-				ldef.subTree, ldef.addr, prevtree.L, prevtree.R = prevtree, addr-2, nil, nexttree
-				prevtree, addr = nexttree, addr+addr
-
-				if _, exists := me.localDefAddrs[ldef.name]; exists {
+				if _, exists := me.localDefs[ldef.name]; exists {
 					panic("in `" + me.name + "`: duplicate local def name `" + ldef.name + "`")
 				}
-				me.localDefAddrs[ldef.name] = ldef.addr
+				me.localDefs[ldef.name] = nil
 			}
 		}
 		for i := range locals {
-			def := &locals[i]
-			me.curLocalDefName = def.name
-			def.subTree.L = me.parseExpr(def.bodySrc)
+			me.curLocalDefName = locals[i].name
+			me.localDefs[me.curLocalDefName] = me.parseExpr(locals[i].bodySrc)
 		}
 	}
 
 	// dealt with the locals, now parse the def's body expr
 	me.curLocalDefName = ""
 	def := me.prog.Globals[me.prog.globalsByName[me.name]]
-	def.R = me.parseExpr(srclines[0])
+	def.L, def.R = None, me.parseExpr(srclines[0])
 }
 
 func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
@@ -139,20 +131,19 @@ func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
 			}
 
 		} else if tok[0] == '_' || (tok[0] >= 'A' && tok[0] <= 'Z') || (tok[0] >= 'a' && tok[0] <= 'z') {
-			addr := me.argAddrs[tok]
-			if addr == 0 {
-				if addr = me.localDefAddrs[tok]; addr == 0 {
-					if addrtmp := me.prog.globalsByName[tok]; addrtmp == 0 {
+			cur = None
+			if _, ok := me.localDefs[tok]; !ok {
+				if _, ok = me.argsAddrs[tok]; !ok {
+					if _, ok = me.prog.globalsByName[tok]; !ok {
 						switch tok {
 						case "this":
-							addr = None
+							cur = ___(OP_AT, NounAtom(4))
 						default:
 							fail(tok, "unknown name")
 						}
 					}
 				}
 			}
-			cur = addr
 		} else if len(tok) == 1 {
 			switch tok[0] {
 			case ':':
@@ -192,10 +183,10 @@ func (me *ctxParseGlobalDef) parseCell(src []string) *NounCell {
 
 func ParseExpr(src string) Noun {
 	ctx := ctxParseGlobalDef{
-		name:          "<input>",
-		prog:          &Prog{globalsByName: make(map[string]NounAtom, 0)},
-		argAddrs:      make(map[string]NounAtom, 0),
-		localDefAddrs: make(map[string]NounAtom, 0),
+		name:      "<input>",
+		prog:      &Prog{globalsByName: make(map[string]NounAtom, 0)},
+		localDefs: make(map[string]Noun, 0),
+		argsAddrs: make(map[string]NounAtom, 0),
 	}
 	return ctx.parseExpr(src)
 }

@@ -103,7 +103,10 @@ func (me *Prog) Call(subj Noun, defName string, args Noun) (ret Noun) {
 func (me *Prog) callGlobalDef(subj Noun, idx NounAtom, args Noun) Noun {
 	if idx < NounAtom(len(me.Globals)) {
 		if def := me.Globals[idx]; def != nil {
-			return me.interp(___(___(___(subj, args), def.L), def.R))
+			return me.interp(___(
+				___(___(subj, args), def.L),
+				def.R,
+			))
 		}
 	}
 	return nil

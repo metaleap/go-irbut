@@ -49,4 +49,5 @@ func main() {
 
 	out(prog.Interp(___(ø, ___(irbut.OP_INCR, ___(irbut.OP_CONST, ª(22))))))
 
+	out(prog.Call(ª(123456789), "id", ª(987654321)))
 }
