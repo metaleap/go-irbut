@@ -48,7 +48,7 @@ func ParseProg(src string) *Prog {
 	// parse the defs
 	for _, defraw := range alldefs {
 		ctxdef := ctxParseGlobalDef{prog: &prog, name: defraw[0]}
-		ctxdef.parse(defraw)
+		ctxdef.parseGlobalDef(defraw)
 	}
 
 	return &prog
@@ -62,33 +62,33 @@ type ctxParseGlobalDef struct {
 	localDefs       map[string]Noun
 }
 
-func (me *ctxParseGlobalDef) parse(nameArgsBody []string) {
-	numargs := len(nameArgsBody) - 2
-	numargsmod2 := numargs % 2
-	me.argsAddrs = make(map[string]NounAtom, numargs)
-	var prev NounAtom
-	for i, isodd := 1, true; i < len(nameArgsBody)-1; i, isodd = i+1, !isodd {
-		argname := nameArgsBody[i]
-		if _, exists := me.argsAddrs[argname]; exists {
-			panic("in `" + me.name + "`: duplicate arg name `" + argname + "`")
-		}
-		addr := NounAtom(5)
-		if numargs > 1 {
-			if i == numargs && numargsmod2 == 0 {
-
-			} else if isodd {
-				addr = prev + 1
-			} else {
-
+func (me *ctxParseGlobalDef) parseGlobalDef(nameArgsBody []string) {
+	{ // calculate args addrs that will pick individual args from callers
+		numargs := len(nameArgsBody) - 2
+		me.argsAddrs = make(map[string]NounAtom, numargs)
+		if numargs == 1 {
+			me.argsAddrs[nameArgsBody[1]] = NounAtom(5)
+		} else {
+			me.argsAddrs[nameArgsBody[1]] = NounAtom(10)
+			for i, iodd, addr := 2, false, NounAtom(10); i < len(nameArgsBody)-1; i, iodd = i+1, !iodd {
+				argname := nameArgsBody[i]
+				if _, exists := me.argsAddrs[argname]; exists {
+					panic("in `" + me.name + "`: duplicate arg name `" + argname + "`")
+				}
+				if addr = addr + 1; i < numargs {
+					addr += addr
+				}
+				me.argsAddrs[argname] = addr
 			}
 		}
-		me.argsAddrs[argname], prev = addr, addr
 	}
 
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
 	if len(srclines) == 0 {
 		panic("in `" + me.name + "`: expected body following `:`")
 	}
+
+	// parse-and-prep local defs if any
 	if me.localDefs = make(map[string]Noun, len(srclines)-1); len(srclines) > 1 {
 		locals := make([]struct {
 			name    string

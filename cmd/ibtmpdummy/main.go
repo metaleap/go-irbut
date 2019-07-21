@@ -55,6 +55,8 @@ func main() {
 		return
 	}
 
+	println("===DEF-CALLS===")
 	out(call(ª(123456789), "id", nil))
 	out(call(ª(123456789), "konst", ª(987654321)))
+	out(call(ª(123456789), "konst4", ___(ª(11), ___(ª(22), ___(ª(33), ª(44))))))
 }

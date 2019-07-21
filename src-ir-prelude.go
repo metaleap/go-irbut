@@ -8,6 +8,9 @@ id:
 konst val:
 	@val
 
+konst4 val1 val2 val3 val4:
+	@val2
+
 // composition
 feed f1 f2:
 	this.f1.f2
