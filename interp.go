@@ -75,8 +75,8 @@ func at(addr Noun, tree Noun) (Noun, bool) {
 }
 
 type Prog struct {
-	Globals       *NounCell
-	globalsByAddr map[NounAtom]*NounCell
+	Globals       []*NounCell
+	globalsByName map[string]NounAtom
 
 	OnHintStatic  func(subj Noun, discard Noun, args Noun) Noun
 	OnHintDynamic func(subj Noun, discardValue Noun, discardResult Noun, args Noun) Noun
@@ -85,9 +85,32 @@ type Prog struct {
 	onHintDynamic bool
 }
 
-// Interp returns a `Noun` other than `code`, or `panic`s with an offending `Noun`.
-func (me *Prog) Interp(code Noun) Noun {
+func (me *Prog) init() {
 	me.onHintDynamic, me.onHintStatic = (me.OnHintDynamic != nil), (me.OnHintStatic != nil)
+}
+
+// Call panics with `defName` if not found, else like `Interp`.
+func (me *Prog) Call(defName string, subj Noun) (ret Noun) {
+	me.init()
+	if idx, ok := me.globalsByName[defName]; ok {
+		if ret = me.callGlobalDef(subj, idx); ret == nil {
+			panic(defName)
+		}
+	}
+	return
+}
+
+func (me *Prog) callGlobalDef(subj Noun, idx NounAtom) Noun {
+	if def := me.Globals[idx]; def != nil {
+		return me.interp(___(subj, def))
+	}
+	return nil
+}
+
+// Interp returns a `Noun` other than `code` that is its full reduction,
+// or `panic`s with an offending `Noun` that prevented reduction of `code`.
+func (me *Prog) Interp(code Noun) Noun {
+	me.init()
 	return me.interp(code)
 }
 
@@ -170,10 +193,12 @@ func (me *Prog) interp(code Noun) Noun {
 						return me.interp(___(subj, argscell.R))
 					}
 				default:
-					if defbagnbody := me.globalsByAddr[opcode]; defbagnbody != nil {
-						return me.interp(___(
-							___(___(subj /*4*/, ___(args /*10*/, defbagnbody.L /*11*/)), me.Globals.R /*3*/),
-							defbagnbody.R))
+					if opcode < NounAtom(len(me.Globals)) {
+						if defbagnbody := me.Globals[opcode]; defbagnbody != nil {
+							return me.interp(___(
+								subj,
+								defbagnbody.R))
+						}
 					}
 				}
 			}
