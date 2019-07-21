@@ -48,6 +48,13 @@ func main() {
 	)))))
 
 	out(prog.Interp(___(ø, ___(irbut.OP_INCR, ___(irbut.OP_CONST, ª(22))))))
+	call := func(subj noun, name string, args noun) (ret noun) {
+		if ret = prog.Call(subj, name, args); ret == nil {
+			panic("global def `" + name + "` does not exist")
+		}
+		return
+	}
 
-	out(prog.Call(ª(123456789), "id", ª(987654321)))
+	out(call(ª(123456789), "id", nil))
+	out(call(ª(123456789), "konst", ª(987654321)))
 }

@@ -63,13 +63,26 @@ type ctxParseGlobalDef struct {
 }
 
 func (me *ctxParseGlobalDef) parse(nameArgsBody []string) {
-	me.argsAddrs = make(map[string]NounAtom, len(nameArgsBody)-2)
-	for i := 1; i < len(nameArgsBody)-1; i++ {
+	numargs := len(nameArgsBody) - 2
+	numargsmod2 := numargs % 2
+	me.argsAddrs = make(map[string]NounAtom, numargs)
+	var prev NounAtom
+	for i, isodd := 1, true; i < len(nameArgsBody)-1; i, isodd = i+1, !isodd {
 		argname := nameArgsBody[i]
 		if _, exists := me.argsAddrs[argname]; exists {
 			panic("in `" + me.name + "`: duplicate arg name `" + argname + "`")
 		}
-		me.argsAddrs[argname] = None
+		addr := NounAtom(5)
+		if numargs > 1 {
+			if i == numargs && numargsmod2 == 0 {
+
+			} else if isodd {
+				addr = prev + 1
+			} else {
+
+			}
+		}
+		me.argsAddrs[argname], prev = addr, addr
 	}
 
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
@@ -133,11 +146,11 @@ func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
 		} else if tok[0] == '_' || (tok[0] >= 'A' && tok[0] <= 'Z') || (tok[0] >= 'a' && tok[0] <= 'z') {
 			cur = None
 			if _, ok := me.localDefs[tok]; !ok {
-				if _, ok = me.argsAddrs[tok]; !ok {
+				if cur, ok = me.argsAddrs[tok]; !ok {
 					if _, ok = me.prog.globalsByName[tok]; !ok {
 						switch tok {
 						case "this":
-							cur = ___(OP_AT, NounAtom(4))
+							cur = NounAtom(4)
 						default:
 							fail(tok, "unknown name")
 						}
@@ -158,6 +171,8 @@ func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
 			fail(tok, "unrecognized token")
 		} else if expr == nil {
 			expr = cur
+		} else {
+			expr = ___(expr, cur)
 		}
 	}
 
@@ -202,21 +217,21 @@ func strBreakAndTrim(s string, sep byte, stripComments bool, nameForErrs string)
 	return
 }
 
-func strSplitAndTrim(s string, sep string, dropEmpties bool) (r []string) {
+func strSplitAndTrim(s string, sep string, dropEmpties bool) (ret []string) {
 	if len(s) != 0 {
-		r = strings.Split(s, sep)
-		for i := range r {
-			r[i] = strings.TrimSpace(r[i])
+		ret = strings.Split(s, sep)
+		for i := range ret {
+			ret[i] = strings.TrimSpace(ret[i])
 		}
 		if sep == "\n" {
-			for i := range r {
-				r[i] = strStripCommentIf(true, r[i])
+			for i := range ret {
+				ret[i] = strStripCommentIf(true, ret[i])
 			}
 		}
 		if dropEmpties {
-			for i := 0; i < len(r); i++ {
-				if r[i] == "" {
-					r = append(r[:i], r[i+1:]...)
+			for i := 0; i < len(ret); i++ {
+				if ret[i] == "" {
+					ret = append(ret[:i], ret[i+1:]...)
 					i--
 				}
 			}

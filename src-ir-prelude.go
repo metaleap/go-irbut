@@ -3,7 +3,10 @@ package irbut
 const SrcPrelude = `
 
 id:
-	this
+	@this
+
+konst val:
+	@val
 
 // composition
 feed f1 f2:

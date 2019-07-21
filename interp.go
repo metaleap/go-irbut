@@ -89,13 +89,17 @@ func (me *Prog) init() {
 	me.onHintDynamic, me.onHintStatic = (me.OnHintDynamic != nil), (me.OnHintStatic != nil)
 }
 
-// Call panics with `defName` if not found, else like `Interp`.
+// Call returns `nil` if `defName` does not name a known global def.
+// Otherwise, the return-value / `panic` behavior of `Interp` applies.
+// While `args` may be `nil` (if the def doesn't require any), `subj`
+// may not and is the def's implicit `this` arg aka. "subject".
 func (me *Prog) Call(subj Noun, defName string, args Noun) (ret Noun) {
 	me.init()
 	if idx, ok := me.globalsByName[defName]; ok {
-		if ret = me.callGlobalDef(subj, idx, args); ret == nil {
-			panic(defName)
+		if args == nil {
+			args = None
 		}
+		ret = me.callGlobalDef(subj, idx, args)
 	}
 	return
 }
@@ -171,7 +175,15 @@ func (me *Prog) interp(code Noun) Noun {
 					}
 				case OP_CASE:
 					if isargscell {
-						if boolish, isboolish := argscell.L.(NounAtom); isboolish {
+						boolish, isboolatom := argscell.L.(NounAtom)
+						if !isboolatom {
+							if _, iscell := argscell.L.(*NounCell); iscell {
+								if b, ok := me.interp(argscell.L).(NounAtom); ok {
+									boolish, isboolatom = b, true
+								}
+							}
+						}
+						if isboolatom {
 							if branch, iscell := argscell.R.(*NounCell); iscell {
 								if boolish == True {
 									return branch.L
