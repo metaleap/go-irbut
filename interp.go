@@ -90,28 +90,30 @@ func (me *Prog) init() {
 }
 
 // Call panics with `defName` if not found, else like `Interp`.
-func (me *Prog) Call(defName string, subj Noun) (ret Noun) {
+func (me *Prog) Call(subj Noun, defName string, args Noun) (ret Noun) {
 	me.init()
 	if idx, ok := me.globalsByName[defName]; ok {
-		if ret = me.callGlobalDef(subj, idx); ret == nil {
+		if ret = me.callGlobalDef(subj, idx, args); ret == nil {
 			panic(defName)
 		}
 	}
 	return
 }
 
-func (me *Prog) callGlobalDef(subj Noun, idx NounAtom) Noun {
-	if def := me.Globals[idx]; def != nil {
-		return me.interp(___(subj, def))
+func (me *Prog) callGlobalDef(subj Noun, idx NounAtom, args Noun) Noun {
+	if idx < NounAtom(len(me.Globals)) {
+		if def := me.Globals[idx]; def != nil {
+			return me.interp(___(___(___(subj, args), def.L), def.R))
+		}
 	}
 	return nil
 }
 
-// Interp returns a `Noun` other than `code` that is its full reduction,
-// or `panic`s with an offending `Noun` that prevented reduction of `code`.
-func (me *Prog) Interp(code Noun) Noun {
+// Interp returns a `Noun` other than `subjectAndFormula` that is its full reduction,
+// or `panic`s with the offending `Noun` that prevented reduction of `subjectAndFormula`.
+func (me *Prog) Interp(subjectAndFormula *NounCell) Noun {
 	me.init()
-	return me.interp(code)
+	return me.interp(subjectAndFormula)
 }
 
 func (me *Prog) interp(code Noun) Noun {
@@ -193,12 +195,8 @@ func (me *Prog) interp(code Noun) Noun {
 						return me.interp(___(subj, argscell.R))
 					}
 				default:
-					if opcode < NounAtom(len(me.Globals)) {
-						if defbagnbody := me.Globals[opcode]; defbagnbody != nil {
-							return me.interp(___(
-								subj,
-								defbagnbody.R))
-						}
+					if n := me.callGlobalDef(subj, opcode, args); n != nil {
+						return n
 					}
 				}
 			}
