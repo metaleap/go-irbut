@@ -40,14 +40,14 @@ func ParseProg(src string) *Prog {
 			panic("duplicate global def name `" + defname + "`")
 		}
 		for idx > 32 && idx < 127 &&
-			(idx == OP_AT || idx == OP_CASE || idx == OP_CONST || idx == OP_EQ || idx == OP_EVAL || idx == OP_HINT || idx == OP_INCR || idx == OP_ISCELL) {
+			(idx == OP_DOT) || (idx == OP_COMP) || (idx == OP_AT || idx == OP_CASE || idx == OP_CONST || idx == OP_EQ || idx == OP_EVAL || idx == OP_HINT || idx == OP_INCR || idx == OP_ISCELL) {
 			idx, prog.Globals = idx+1, append(prog.Globals, nil)
 		}
-		prog.globalsByName[defname], prog.Globals = idx, append(prog.Globals, &NounCell{})
+		prog.globalsByName[defname], prog.Globals = idx, append(prog.Globals, &NounCell{L: None, R: None})
 	}
 	// parse the defs
 	for _, defraw := range alldefs {
-		ctxdef := ctxParseGlobalDef{prog: &prog, name: defraw[0]}
+		ctxdef := ctxParseGlobalDef{prog: &prog, defNameG: defraw[0]}
 		ctxdef.parseGlobalDef(defraw)
 	}
 
@@ -55,11 +55,11 @@ func ParseProg(src string) *Prog {
 }
 
 type ctxParseGlobalDef struct {
-	prog            *Prog
-	name            string
-	curLocalDefName string
-	argsAddrs       map[string]NounAtom
-	localDefs       map[string]Noun
+	prog      *Prog
+	defNameG  string
+	defNameL  string
+	argsAddrs map[string]NounAtom
+	localDefs map[string]Noun
 }
 
 func (me *ctxParseGlobalDef) parseGlobalDef(nameArgsBody []string) {
@@ -73,7 +73,7 @@ func (me *ctxParseGlobalDef) parseGlobalDef(nameArgsBody []string) {
 			for i, iodd, addr := 2, false, NounAtom(10); i < len(nameArgsBody)-1; i, iodd = i+1, !iodd {
 				argname := nameArgsBody[i]
 				if _, exists := me.argsAddrs[argname]; exists {
-					panic("in `" + me.name + "`: duplicate arg name `" + argname + "`")
+					panic("in `" + me.defNameG + "`: duplicate arg name `" + argname + "`")
 				}
 				if addr = addr + 1; i < numargs {
 					addr += addr
@@ -85,7 +85,7 @@ func (me *ctxParseGlobalDef) parseGlobalDef(nameArgsBody []string) {
 
 	srclines := strSplitAndTrim(nameArgsBody[len(nameArgsBody)-1], "\n", true)
 	if len(srclines) == 0 {
-		panic("in `" + me.name + "`: expected body following `:`")
+		panic("in `" + me.defNameG + "`: expected body following `:`")
 	}
 
 	// parse-and-prep local defs if any
@@ -96,32 +96,36 @@ func (me *ctxParseGlobalDef) parseGlobalDef(nameArgsBody []string) {
 		}, len(srclines)-1)
 		for i := 1; i < len(srclines); i++ {
 			ldef, ldefsrc := &locals[i-1], srclines[i]
-			if ldef.name, ldef.bodySrc = strBreakAndTrim(ldefsrc, ':', true, me.name); ldef.name == "" {
-				panic("in `" + me.name + "`: expected name preceding `:` for local def near: " + ldefsrc)
+			if ldef.name, ldef.bodySrc = strBreakAndTrim(ldefsrc, ':', true, me.defNameG); ldef.name == "" {
+				panic("in `" + me.defNameG + "`: expected name preceding `:` for local def near: " + ldefsrc)
 			} else if ldef.bodySrc == "" {
-				panic("in `" + strJoin2(me.name, "/", ldef.name) + "`: expected body following `:` for local def near: " + ldefsrc)
+				panic("in `" + strJoin2(me.defNameG, "/", ldef.name) + "`: expected body following `:` for local def near: " + ldefsrc)
+			} else if _, exists := me.localDefs[ldef.name]; exists {
+				panic("in `" + me.defNameG + "`: duplicate local def name `" + ldef.name + "`")
 			} else {
-				if _, exists := me.localDefs[ldef.name]; exists {
-					panic("in `" + me.name + "`: duplicate local def name `" + ldef.name + "`")
-				}
 				me.localDefs[ldef.name] = nil
 			}
 		}
 		for i := range locals {
-			me.curLocalDefName = locals[i].name
-			me.localDefs[me.curLocalDefName] = me.parseExpr(locals[i].bodySrc)
+			me.defNameL = locals[i].name
+			me.localDefs[me.defNameL] = me.parseExpr(locals[i].bodySrc)
 		}
 	}
 
 	// dealt with the locals, now parse the def's body expr
-	me.curLocalDefName = ""
-	def := me.prog.Globals[me.prog.globalsByName[me.name]]
+	def := me.prog.Globals[me.prog.globalsByName[me.defNameG]]
+	me.defNameL = ""
 	def.L, def.R = None, me.parseExpr(srclines[0])
+
+	if me.defNameG == "konst4" {
+		println(me.prog.globalsByName["id"])
+		panic(def.R.String())
+	}
 }
 
 func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
 	fail := func(tok string, msg string) {
-		panic("in `" + strJoin2(me.name, "/", me.curLocalDefName) + "` near `" + tok + "`: " + msg)
+		panic("in `" + strJoin2(me.defNameG, "/", me.defNameL) + "` near `" + tok + "`: " + msg)
 	}
 	toks, numopenbrackets := strTokens(src)
 	if numopenbrackets != 0 {
@@ -161,8 +165,6 @@ func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
 			switch tok[0] {
 			case ':':
 				fail(tok, "wrong line for a local def (`:` is not permissible in expressions)")
-			case '.':
-				cur = None // temp, TODO
 			default:
 				cur = NounAtom(tok[0])
 			}
@@ -172,6 +174,21 @@ func (me *ctxParseGlobalDef) parseExpr(src string) (expr Noun) {
 		} else if expr == nil {
 			expr = cur
 		} else {
+			if cell, okc := expr.(*NounCell); okc {
+				if dot, okd := cell.R.(NounAtom); okd && dot == '.' {
+					if atom, oka := cur.(NounAtom); oka {
+						cell.R = atom
+						expr = ___(OP_COMP, cell)
+						return
+						/*
+							have: [[64 22] 46] now: 0
+							want: [62 [[64 22] 0]]
+						*/
+					} else {
+						fail(tok, "not a callable: `"+tok+"`")
+					}
+				}
+			}
 			expr = ___(expr, cur)
 		}
 	}
@@ -198,7 +215,7 @@ func (me *ctxParseGlobalDef) parseCell(src []string) *NounCell {
 
 func ParseExpr(src string) Noun {
 	ctx := ctxParseGlobalDef{
-		name:      "<input>",
+		defNameG:  "<input>",
 		prog:      &Prog{globalsByName: make(map[string]NounAtom, 0)},
 		localDefs: make(map[string]Noun, 0),
 		argsAddrs: make(map[string]NounAtom, 0),

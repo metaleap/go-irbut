@@ -28,9 +28,11 @@ func (me *NounCell) String() string { return "[" + me.L.String() + " " + me.R.St
 const (
 	OP_AT     NounAtom = '@'
 	OP_CONST  NounAtom = '^'
+	OP_COMP   NounAtom = '>'
 	OP_EVAL   NounAtom = '!'
 	OP_ISCELL NounAtom = '?'
 	OP_INCR   NounAtom = '+'
+	OP_DOT    NounAtom = '.'
 	OP_EQ     NounAtom = '='
 	OP_CASE   NounAtom = '|'
 	OP_HINT   NounAtom = '\''
@@ -140,12 +142,18 @@ func (me *Prog) interp(code Noun) Noun {
 			if opcode, isopcode := op.(NounAtom); isopcode {
 				argscell, isargscell := args.(*NounCell)
 				switch opcode {
+				case OP_DOT:
+					return me.interp(___(subj, args))
 				case OP_AT:
 					if n, ok := at(args, subj); ok {
 						return n
 					}
 				case OP_CONST:
 					return args
+				case OP_COMP:
+					if isargscell {
+						return me.interp(___(me.interp(___(subj, argscell.L)), argscell.R))
+					}
 				case OP_EVAL:
 					if isargscell {
 						return me.interp(___(

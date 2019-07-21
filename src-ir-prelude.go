@@ -9,7 +9,7 @@ konst val:
 	@val
 
 konst4 val1 val2 val3 val4:
-	@val2
+	@val2.id
 
 // composition
 feed f1 f2:
